@@ -25,14 +25,14 @@ draw_square:
 
     ; Draw the square
     .draw_row:
-        mov [video_memory + di], al
+        mov [0xA000:di], al
         inc di
         dec si
         jnz .draw_row
 
     ; Move to the next row
     inc dx
-    cmp dx, 200
+    cmp dx, 100 + bx
     jl draw_square
 
     ; Wait for a key press
@@ -48,4 +48,4 @@ draw_square:
     int 0x21
 
 section .bss
-video_memory resb 64000  ; 320x200 pixels, 1 byte per pixel
+
