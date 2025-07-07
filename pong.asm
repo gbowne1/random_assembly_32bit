@@ -132,13 +132,13 @@ update_ball:
     mov al, [ball_x]
     cmp al, 10
     je .hit_paddle1
-    cmp al, 309
-    je .hit_paddle2
+    cmp al, 240  ; Check if ball_x is near the right edge
+    jge .hit_paddle2
 
     ; Ball missed paddles — Game Over if out of bounds
     cmp al, 0
     jb .game_over
-    cmp al, 319
+    cmp al, 255  ; Check if ball_x is out of bounds on the right
     ja .game_over
     ret
 
@@ -152,7 +152,7 @@ update_ball:
     ja .end_update            ; Ball is below the paddle
 
     mov byte [ball_dx], 1     ; Bounce right
-    ret
+    ret     ; Bounce right
 
 .hit_paddle2:
     mov al, [ball_y]          ; Ball Y position
@@ -163,7 +163,7 @@ update_ball:
     cmp al, bl
     ja .end_update            ; Ball is below the paddle
 
-    mov byte [ball_dx], -1    ; Bounce left
+    mov byte [ball_dx], 0xFF    ; Bounce left
     ret
 
 .bounce_up:
@@ -200,18 +200,26 @@ handle_input:
     jmp .end_input
 
 .paddle1_up:
+    cmp byte [paddle1_y], 0
+    je .end_input
     dec byte [paddle1_y]
     jmp .end_input
 
 .paddle1_down:
+    cmp byte [paddle1_y], 190
+    jge .end_input
     inc byte [paddle1_y]
     jmp .end_input
 
 .paddle2_up:
+    cmp byte [paddle2_y], 0
+    je .end_input
     dec byte [paddle2_y]
     jmp .end_input
 
 .paddle2_down:
+    cmp byte [paddle2_y], 190
+    jge .end_input
     inc byte [paddle2_y]
     jmp .end_input
 
