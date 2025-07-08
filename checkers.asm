@@ -1,87 +1,118 @@
 ; checkers.asm
-section .text
-    global _start
+[BITS 16]
+[ORG 0x100]              ; .COM file entry point
 
-_start:
-    ; Set video mode to 256-color 640x480
-    mov ax, 0x13
+section .text
+
+start:
+    ; Set video mode to 13h (320x200, 256-color)
+    mov ax, 0x0013
     int 0x10
 
-    ; Draw the checkerboard
     call draw_checkerboard
 
-    ; Wait for a key press
-    call wait_for_key
+    ; Wait for key press
+    mov ah, 0x00
+    int 0x16
 
-    ; Return to text mode
-    mov ax, 0x03
+    ; Return to text mode (03h)
+    mov ax, 0x0003
     int 0x10
 
-    ; Exit program
+    ; Exit to DOS
     mov ax, 0x4C00
     int 0x21
 
+; ------------------------------
+; Draw checkerboard (8x8 squares)
+; ------------------------------
 draw_checkerboard:
-    ; Set up registers for drawing
-    mov ecx, 8          ; Number of rows of squares
-    mov edx, 8          ; Number of columns of squares
-    mov ebx, 0          ; Row index
-    mov esi, 0          ; Column index
-    mov eax, 0x0C       ; Color for black squares
-    mov edi, 0x04       ; Color for red squares
+    mov si, 0           ; Row index (0–7)
 
-    ; Loop through rows
-draw_row:
-    push ebx            ; Save row index
-    push esi            ; Save column index
+.next_row:
+    mov di, 0           ; Column index (0–7)
 
-    ; Loop through columns
-    mov esi, 0          ; Reset column index
-draw_column:
-    ; Calculate the color based on the position
-    xor ebx, ebx       ; Clear ebx for color calculation
-    add ebx, ebx       ; Double the row index
-    add ebx, esi       ; Add column index
-    and ebx, 1         ; Check if the sum is even or odd
+.next_col:
+    mov ax, si         ; Move row index to AX
+    add ax, di         ; Add column index
+    and al, 1          ; Use only the lowest bit to alternate color
+    jz .color_black
+.color_black:
+    mov bl, 0x0C        ; black
+.color_set:
 
-    ; Select color
-    cmp ebx, 0
-    je draw_black
-    mov bh, edi        ; Use red color
-    jmp draw_square
+    ; Compute pixel (x, y) start for current square
+    ; Each square is 40x25 pixels (320/8 x 200/8)
+    mov ax, di
+    mov cx, 40
+    mul cx              ; ax = col * 40
+    mov dx, ax          ; dx = x
 
-draw_black:
-    mov bh, eax        ; Use black color
+    mov ax, si
+    mov cx, 25
+    mul cx              ; ax = row * 25
+    mov cx, ax          ; cx = y
 
-draw_square:
-    ; Draw the square at (column * 80 + row) * 8
-    mov di, ebx        ; Use di to hold the color
-    mov ebx, esi       ; Column index
-    shl ebx, 3         ; Multiply by 8 (width of each square)
-    add ebx, ebx       ; Multiply by 2 (for 16-bit color)
-    mov edi, ebx       ; Store column offset in edi
+    ; Draw 40x25 square at (dx, cx) with color bl
+    push si
+    push di
+    call draw_square
+    pop di
+    pop si
 
-    mov ebx, ebx       ; Row index
-    shl ebx, 3         ; Multiply by 8 (height of each square)
-    add edi, ebx       ; Add row offset
+    inc di
+    cmp di, 8
+    jl .next_col
 
-    ; Set the pixel color in VGA memory
-    mov [0xA0000 + edi], di
-
-    inc esi            ; Move to the next column
-    cmp esi, edx       ; Check if we reached the end of the row
-    jl draw_column      ; If not, continue drawing
-
-    pop esi            ; Restore column index
-    pop ebx            ; Restore row index
-    inc ebx            ; Move to the next row
-    cmp ebx, ecx       ; Check if we reached the end of the rows
-    jl draw_row        ; If not, continue drawing
+    inc si
+    cmp si, 8
+    jl .next_row
 
     ret
 
-wait_for_key:
-    ; Wait for a key press
-    mov ah, 0x00
-    int 0x16
+; ----------------------------------------
+; Draw 40x25 filled square at (x=dx, y=cx)
+; Inputs:
+;   dx = x position
+;   cx = y position
+;   bl = color
+; ----------------------------------------
+draw_square:
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    push di
+
+    mov si, cx          ; si = y start
+    mov cx, 25          ; 25 rows
+
+.row_loop:
+    mov di, dx          ; di = x start
+    mov bx, 40          ; 40 columns
+
+.col_loop:
+    ; Set pixel at (di, si) with color bl
+    mov ah, 0x0C
+    mov al, bl
+    mov cx, di
+    mov dx, si
+    mov bh, 0x00        ; page 0
+    int 0x10
+
+    inc di
+    dec bx
+    jnz .col_loop
+
+    inc si
+    dec cx
+    jnz .row_loop
+
+    pop di
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
     ret
